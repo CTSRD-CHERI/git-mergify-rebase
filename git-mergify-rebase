@@ -1,0 +1,192 @@
+#!/bin/sh
+#-
+# Copyright (c) 2015-2018 SRI International
+# Copyright (c) 2019-2020 Jesicca Clarke
+#
+# This software was developed by SRI International and the University of
+# Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+# ("CTSRD"), as part of the DARPA CRASH research programme.
+#
+# This software was developed by SRI International and the University of
+# Cambridge Computer Laboratory (Department of Computer Science and
+# Technology) under DARPA contract HR0011-18-C-0016 ("ECATS"), as part of the
+# DARPA SSITH research programme.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+
+set -e
+set -u
+
+info() {
+	echo >&2 "info: $@"
+}
+
+warn() {
+	echo >&2 "warning: $@"
+}
+
+die() {
+	echo >&2 "fatal: $@"
+	exit 1
+}
+
+usage() {
+	echo >&2 "fatal: $@"
+	echo >&2
+	echo >&2 "usage: git mergify-rebase start <commit>"
+	echo >&2 "   or: git mergify-rebase abort"
+	echo >&2 "   or: git mergify-rebase autoadd"
+	echo >&2 "   or: git mergify-rebase commit"
+	echo >&2 "   or: git mergify-rebase continue"
+	echo >&2 "   or: git mergify-rebase show"
+	echo >&2 "   or: git mergify-rebase skip"
+	echo >&2 "   or: git mergify-rebase status"
+	exit 1
+}
+
+if [ $# -lt 1 -o -z "${1:-}" ]; then
+	usage "no subcommand provided"
+fi
+
+commit() {
+	if [ ! -e "$(git rev-parse --git-dir)"/MERGE_HEAD ]; then
+		die "cannot commit; no merge in progress"
+	fi
+	if git status --porcelain=v1 | grep -q '^\(UD\|DU\|AA\|MM\|UU\)'; then
+		die "cannot commit; please stage your changes"
+	fi
+	git commit -C MERGE_HEAD
+}
+
+commit_and_continue() {
+	if [ -e "$(git rev-parse --git-dir)"/MERGE_HEAD ]; then
+		commit
+	fi
+	git rebase --continue
+}
+
+case "$1" in
+	start)
+		if [ $# -lt 2 ]; then
+			usage "missing commit argument"
+		elif [ $# -gt 2 ]; then
+			usage "too many arguments"
+		fi
+		env GIT_SEQUENCE_EDITOR=git-mergify-rebase-sequence-editor GIT_MERGIFY_REBASE_COMMIT=$2 git rebase -i HEAD
+		;;
+	abort)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		git rebase --abort
+		;;
+	autoadd)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		git status --porcelain=v1 | { warned=0; while IFS='' read -r line; do
+			status="${line%% [^ ]*}"
+			file="${line#?? }"
+			case "$status" in
+			UD)
+				info "deleting $file (deleted by them)"
+				git rm "$file"
+				;;
+			DU)
+				info "deleting $file (previously deleted by us)"
+				git rm "$file"
+				;;
+			AA|MM|UU)
+				if grep -qE '^(<<<<<<< HEAD|=======|>>>>>>> [0-9a-f]*)$' "$file"; then
+					warn "$file contains conflict markers, skipping"
+					warned=1
+					continue
+				fi
+				info "adding $file"
+				git add "$file"
+				;;
+			'A '|'C '|'D '|'M '|'R '|'??')
+				# do nothing
+				;;
+			*)
+				warn "doing nothing to '$file' (status '$status')"
+				warned=1
+				;;
+			esac
+		done; exit $warned; }
+		;;
+	commit)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		commit
+		;;
+	continue)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		commit_and_continue
+		;;
+	show)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		git show MERGE_HEAD
+		;;
+	skip)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		unhandled=0
+		git status --porcelain=v1 | { unhandled=0; while IFS='' read -r line; do
+			status="${line%% [^ ]*}"
+			file="${line#?? }"
+			case "$status" in
+			AA|MM|'M '|UU|UD)
+				info "Restoring $file to HEAD"
+				git show "HEAD:$file" > "$file"
+				git add "$file"
+				;;
+			'??')
+				# Ignore stray files
+				;;
+			*)
+				unhandled=$(($unhandled + 1))
+				warn "doing nothing to '$file' (status '$status')"
+				;;
+			esac
+		done; exit $unhandled; } || unhandled=$?
+		if [ $unhandled -ne 0 ]; then
+			die "$unhandled unhandled files, not attemping to commit"
+		fi
+		commit_and_continue
+		;;
+	status)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		git status
+		;;
+	*)
+		usage "unknown subcommand: $command"
+esac
