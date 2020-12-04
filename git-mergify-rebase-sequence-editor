@@ -53,4 +53,4 @@ if [ -z "${GIT_MERGIFY_REBASE_COMMIT:-}" ]; then
 	die "GIT_MERGIFY_REBASE_COMMIT is not set"
 fi
 
-make-mergify-rebase $GIT_MERGIFY_REBASE_COMMIT > $1
+make-mergify-rebase "$GIT_MERGIFY_REBASE_COMMIT" > "$1"

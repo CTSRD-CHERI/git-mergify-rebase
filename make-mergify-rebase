@@ -49,4 +49,4 @@ if [ $# -ne 1 ]; then
 	usage
 fi
 
-git log --first-parent --reverse --format="format:# %s%nmerge -C %H %H%n" HEAD..$1
+git log --first-parent --reverse --format="format:# %s%nmerge -C %H %H%n" HEAD.."$1"
