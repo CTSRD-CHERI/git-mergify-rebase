@@ -189,4 +189,5 @@ case "$1" in
 		;;
 	*)
 		usage "unknown subcommand: $command"
+		;;
 esac
