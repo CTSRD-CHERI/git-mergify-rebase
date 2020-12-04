@@ -188,6 +188,6 @@ case "$1" in
 		git status
 		;;
 	*)
-		usage "unknown subcommand: $command"
+		usage "unknown subcommand: $1"
 		;;
 esac
