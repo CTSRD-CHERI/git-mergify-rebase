@@ -38,20 +38,20 @@ set -e
 set -u
 
 info() {
-	echo >&2 "info: $@"
+	echo >&2 "info:" "$@"
 }
 
 warn() {
-	echo >&2 "warning: $@"
+	echo >&2 "warning:" "$@"
 }
 
 die() {
-	echo >&2 "fatal: $@"
+	echo >&2 "fatal:" "$@"
 	exit 1
 }
 
 usage() {
-	echo >&2 "fatal: $@"
+	echo >&2 "fatal:" "$@"
 	echo >&2
 	echo >&2 "usage: git mergify-rebase start <commit>"
 	echo >&2 "   or: git mergify-rebase abort"
