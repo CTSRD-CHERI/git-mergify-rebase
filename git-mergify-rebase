@@ -64,7 +64,7 @@ usage() {
 	exit 1
 }
 
-if [ $# -lt 1 -o -z "${1:-}" ]; then
+if [ $# -lt 1 ] || [ -z "${1:-}" ]; then
 	usage "no subcommand provided"
 fi
 
@@ -92,7 +92,7 @@ case "$1" in
 		elif [ $# -gt 2 ]; then
 			usage "too many arguments"
 		fi
-		env GIT_SEQUENCE_EDITOR=git-mergify-rebase-sequence-editor GIT_MERGIFY_REBASE_COMMIT=$2 git rebase -i HEAD
+		env GIT_SEQUENCE_EDITOR=git-mergify-rebase-sequence-editor GIT_MERGIFY_REBASE_COMMIT="$2" git rebase -i HEAD
 		;;
 	abort)
 		if [ $# -gt 1 ]; then
@@ -171,7 +171,7 @@ case "$1" in
 				# Ignore stray files
 				;;
 			*)
-				unhandled=$(($unhandled + 1))
+				unhandled=$((unhandled + 1))
 				warn "doing nothing to '$file' (status '$status')"
 				;;
 			esac
