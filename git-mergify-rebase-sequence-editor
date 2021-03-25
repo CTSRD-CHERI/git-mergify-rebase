@@ -49,8 +49,17 @@ if [ $# -gt 1 ]; then
 	usage
 fi
 
-if [ -z "${GIT_MERGIFY_REBASE_COMMIT:-}" ]; then
-	die "GIT_MERGIFY_REBASE_COMMIT is not set"
+if [ -z "${GIT_MERGIFY_REBASE_COMMAND:-}" ]; then
+	die "GIT_MERGIFY_REBASE_COMMAND is not set"
 fi
 
-make-mergify-rebase "$GIT_MERGIFY_REBASE_COMMIT" > "$1"
+case "$GIT_MERGIFY_REBASE_COMMAND" in
+start:*)
+	make-mergify-rebase "${GIT_MERGIFY_REBASE_COMMAND#start:}"
+	;;
+stop)
+	echo "noop"
+	;;
+*)
+	;;
+esac > "$1"

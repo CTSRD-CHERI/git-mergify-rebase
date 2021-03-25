@@ -54,6 +54,7 @@ usage() {
 	echo >&2 "fatal:" "$@"
 	echo >&2
 	echo >&2 "usage: git mergify-rebase start <commit>"
+	echo >&2 "   or: git mergify-rebase stop"
 	echo >&2 "   or: git mergify-rebase abort"
 	echo >&2 "   or: git mergify-rebase autoadd"
 	echo >&2 "   or: git mergify-rebase commit"
@@ -92,7 +93,14 @@ case "$1" in
 		elif [ $# -gt 2 ]; then
 			usage "too many arguments"
 		fi
-		env GIT_SEQUENCE_EDITOR=git-mergify-rebase-sequence-editor GIT_MERGIFY_REBASE_COMMIT="$2" git rebase -i HEAD
+		env GIT_SEQUENCE_EDITOR=git-mergify-rebase-sequence-editor GIT_MERGIFY_REBASE_COMMAND="start:$2" git rebase -i HEAD
+		;;
+	stop)
+		if [ $# -gt 1 ]; then
+			usage "too many arguments"
+		fi
+		env GIT_SEQUENCE_EDITOR=git-mergify-rebase-sequence-editor GIT_MERGIFY_REBASE_COMMAND="stop" git rebase --edit-todo
+		git rebase --continue
 		;;
 	abort)
 		if [ $# -gt 1 ]; then
