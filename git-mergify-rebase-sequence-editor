@@ -61,5 +61,6 @@ stop)
 	echo "noop"
 	;;
 *)
+	die "Unknown GIT_MERGIFY_REBASE_COMMAND: $GIT_MERGIFY_REBASE_COMMAND"
 	;;
 esac > "$1"
